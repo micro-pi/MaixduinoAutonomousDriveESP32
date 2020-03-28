@@ -35,6 +35,8 @@ void spiTaskFunction(void *parameter) {
   const TickType_t xFrequency = 10;
   TickType_t xLastWakeTime;
   esp_err_t espErr;
+  uint8_t ctx = 0;
+  MovingModuleInterface movingModuleInterface;
 
   /* Initialise the xLastWakeTime variable with the current time. */
   xLastWakeTime = xTaskGetTickCount();
@@ -42,10 +44,22 @@ void spiTaskFunction(void *parameter) {
   ESP_LOGI("spi_slave_task", "");
 
   while (true) {
-    sprintf((char *)spi0Esp32TxBuffer.data, "Hello K210, xLastWakeTime: %d", xLastWakeTime);
-    spi0Esp32TxBuffer.type = STRING;
-    spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
-    spi0Esp32TxBuffer.size = strlen((char *)spi0Esp32TxBuffer.data);
+    if (ctx % 2 == 0) {
+      movingModuleInterface.command = MOVING_MODULE_COMMAND_PWM;
+      movingModuleInterface.commandAttribute = MOVING_MODULE_COMMAND_ATTRIBUTE_ALL;
+      movingModuleInterface.movingDirection = MOVING_MODULE_DIRECTION_NONE;
+      movingModuleInterface.pwmValue = 100;
+
+      memcpy(spi0Esp32TxBuffer.data, &movingModuleInterface, sizeof(MovingModuleInterface));
+      spi0Esp32TxBuffer.type = CMD;
+      spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
+      spi0Esp32TxBuffer.size = sizeof(MovingModuleInterface);
+    } else {
+      sprintf((char *)spi0Esp32TxBuffer.data, "Hello K210, xLastWakeTime: %d", xLastWakeTime);
+      spi0Esp32TxBuffer.type = STRING;
+      spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
+      spi0Esp32TxBuffer.size = strlen((char *)spi0Esp32TxBuffer.data);
+    }
 
     espErr = k210.transferFullDuplex(spi0Esp32TxBuffer, spi0Esp32RxBuffer);
     if (espErr == ESP_OK) {
@@ -58,6 +72,7 @@ void spiTaskFunction(void *parameter) {
     } else {
       ESP_LOGI(TAG, "ERR_CODE:%d ", espErr);
     }
+    ctx++;
 
     /* Wait for the next cycle. */
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(xFrequency));

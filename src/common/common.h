@@ -6,6 +6,7 @@
 #define SPI_BUF_SIZE (64)
 
 typedef enum {
+  EMPTY,
   STRING,
   CMD,
   BYTES
@@ -20,6 +21,82 @@ typedef struct {
   uint8_t size;
   uint16_t crc;
 } K210ESP32Data;
+
+typedef enum {
+  E_OK,
+  E_NOK
+} ErrorCode;
+
+/**
+ * Moving Module Commands
+ */
+typedef enum {
+  /**
+   * Stop command
+   */
+  MOVING_MODULE_COMMAND_STOP = (0u),
+  /**
+   * Start command
+   */
+  MOVING_MODULE_COMMAND_START = (1u),
+  /**
+   * Move command
+   */
+  MOVING_MODULE_COMMAND_MOVE = (2u),
+  /**
+   * PWM command
+   */
+  MOVING_MODULE_COMMAND_PWM = (3u),
+  /**
+   * None
+   */
+  MOVING_MODULE_COMMAND_NONE
+} MovingModuleCommands;
+
+typedef enum {
+  /**
+   * All
+   */
+  MOVING_MODULE_COMMAND_ATTRIBUTE_ALL = (0u),
+  /**
+   * Right
+   */
+  MOVING_MODULE_COMMAND_ATTRIBUTE_RIGHT = (1u),
+  /**
+   * Left
+   */
+  MOVING_MODULE_COMMAND_ATTRIBUTE_LEFT = (2u),
+  /**
+   * None
+   */
+  MOVING_MODULE_COMMAND_ATTRIBUTE_NONE
+} MovingModuleCommandAttribute;
+
+typedef enum {
+  /**
+   * Forward command
+   */
+  MOVING_MODULE_DIRECTION_FORWARD = (0u),
+  /**
+   * Back command
+   */
+  MOVING_MODULE_DIRECTION_BACK = (1u),
+  /**
+   * Around command
+   */
+  MOVING_MODULE_DIRECTION_AROUND = (2u),
+  /**
+   * None
+   */
+  MOVING_MODULE_DIRECTION_NONE
+} MovingModuleDirection;
+
+typedef struct {
+  MovingModuleCommands command;
+  MovingModuleCommandAttribute commandAttribute;
+  MovingModuleDirection movingDirection;
+  uint16_t pwmValue;
+} MovingModuleInterface;
 
 /***** crc16 *****/
 //Tested
