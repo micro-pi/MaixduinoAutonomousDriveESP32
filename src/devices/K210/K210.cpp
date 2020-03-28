@@ -22,6 +22,8 @@ void K210::setTicksToWait(const TickType_t ticksToWait) {
 }
 
 esp_err_t K210::transferFullDuplex(K210ESP32Data &spi0Esp32TxBuffer, K210ESP32Data &spi0Esp32RxBuffer) {
+  spi0Esp32TxBuffer.crc = k210Esp32DataCrc16(spi0Esp32TxBuffer);
+
   slaveTransaction.length = SPI_BUF_SIZE * 8;
   slaveTransaction.tx_buffer = &spi0Esp32TxBuffer;
   slaveTransaction.rx_buffer = &spi0Esp32RxBuffer;

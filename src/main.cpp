@@ -30,22 +30,22 @@ void adcTaskFunction(void *parameter) {
   }
 }
 
+/* https://www.esp32.com/viewtopic.php?t=6512 */
 void spiTaskFunction(void *parameter) {
-  /* https://www.esp32.com/viewtopic.php?t=6512 */
-
+  const TickType_t xFrequency = 10;
+  TickType_t xLastWakeTime;
   esp_err_t espErr;
+
+  /* Initialise the xLastWakeTime variable with the current time. */
+  xLastWakeTime = xTaskGetTickCount();
 
   ESP_LOGI("spi_slave_task", "");
 
   while (true) {
-    spi0Esp32TxBuffer.id = 2;
+    sprintf((char *)spi0Esp32TxBuffer.data, "Hello K210, xLastWakeTime: %d", xLastWakeTime);
     spi0Esp32TxBuffer.type = STRING;
-    spi0Esp32TxBuffer.size = sizeof(spi0Esp32TxBuffer.data);
-
-    for (size_t i = 0; i < spi0Esp32TxBuffer.size - 1; i++) {
-      spi0Esp32TxBuffer.data[i] = 'A' + (i % 10);
-    }
-    spi0Esp32TxBuffer.data[spi0Esp32TxBuffer.size - 1] = '\0';
+    spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
+    spi0Esp32TxBuffer.size = strlen((char *)spi0Esp32TxBuffer.data);
 
     espErr = k210.transferFullDuplex(spi0Esp32TxBuffer, spi0Esp32RxBuffer);
     if (espErr == ESP_OK) {
@@ -58,6 +58,9 @@ void spiTaskFunction(void *parameter) {
     } else {
       ESP_LOGI(TAG, "ERR_CODE:%d ", espErr);
     }
+
+    /* Wait for the next cycle. */
+    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(xFrequency));
   }
 }
 
