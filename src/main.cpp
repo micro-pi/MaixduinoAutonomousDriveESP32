@@ -36,7 +36,7 @@ void spiTaskFunction(void *parameter) {
   TickType_t xLastWakeTime;
   esp_err_t espErr;
   uint8_t ctx = 0;
-  MovingModuleInterface movingModuleInterface;
+  // MovingModuleInterface movingModuleInterface;
 
   /* Initialise the xLastWakeTime variable with the current time. */
   xLastWakeTime = xTaskGetTickCount();
@@ -45,15 +45,15 @@ void spiTaskFunction(void *parameter) {
 
   while (true) {
     if (ctx % 2 == 0) {
-      movingModuleInterface.command = MOVING_MODULE_COMMAND_PWM;
-      movingModuleInterface.commandAttribute = MOVING_MODULE_COMMAND_ATTRIBUTE_ALL;
-      movingModuleInterface.movingDirection = MOVING_MODULE_DIRECTION_NONE;
-      movingModuleInterface.pwmValue = 100;
+      // movingModuleInterface.command = MOVING_MODULE_COMMAND_PWM;
+      // movingModuleInterface.commandAttribute = MOVING_MODULE_COMMAND_ATTRIBUTE_ALL;
+      // movingModuleInterface.movingDirection = MOVING_MODULE_DIRECTION_NONE;
+      // movingModuleInterface.pwmValue = 100;
 
-      memcpy(spi0Esp32TxBuffer.data, &movingModuleInterface, sizeof(MovingModuleInterface));
-      spi0Esp32TxBuffer.type = MOVING_CMD;
-      spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
-      spi0Esp32TxBuffer.size = sizeof(MovingModuleInterface);
+      // memcpy(spi0Esp32TxBuffer.data, &movingModuleInterface, sizeof(MovingModuleInterface));
+      // spi0Esp32TxBuffer.type = MOVING_CMD;
+      // spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
+      // spi0Esp32TxBuffer.size = sizeof(MovingModuleInterface);
     } else {
       sprintf((char *)spi0Esp32TxBuffer.data, "Hello K210, xLastWakeTime: %d", xLastWakeTime);
       spi0Esp32TxBuffer.type = STRING;

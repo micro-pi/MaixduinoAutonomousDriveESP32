@@ -1,6 +1,7 @@
 #ifndef PROJECT_CFG_H
 #define PROJECT_CFG_H
 
+#include <driver/gpio.h>
 #include <freertos/FreeRTOS.h>
 
 /* SPI3 Pins */

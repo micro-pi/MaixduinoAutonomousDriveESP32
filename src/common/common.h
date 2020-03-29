@@ -82,9 +82,13 @@ typedef enum {
    */
   MOVING_MODULE_DIRECTION_BACK = (1u),
   /**
-   * Around command
+   * Around command (Left forward, Back backward)
    */
-  MOVING_MODULE_DIRECTION_AROUND = (2u),
+  MOVING_MODULE_DIRECTION_AROUND_LF_RB = (2u),
+  /**
+   * Around command (Left backward, Back forward)
+   */
+  MOVING_MODULE_DIRECTION_AROUND_LB_RF = (3u),
   /**
    * None
    */
