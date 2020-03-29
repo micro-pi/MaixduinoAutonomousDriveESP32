@@ -8,7 +8,7 @@
 typedef enum {
   EMPTY,
   STRING,
-  CMD,
+  MOVING_CMD,
   BYTES
 } K210ESP32DataType;
 

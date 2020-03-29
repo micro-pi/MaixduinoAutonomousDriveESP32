@@ -51,7 +51,7 @@ void spiTaskFunction(void *parameter) {
       movingModuleInterface.pwmValue = 100;
 
       memcpy(spi0Esp32TxBuffer.data, &movingModuleInterface, sizeof(MovingModuleInterface));
-      spi0Esp32TxBuffer.type = CMD;
+      spi0Esp32TxBuffer.type = MOVING_CMD;
       spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
       spi0Esp32TxBuffer.size = sizeof(MovingModuleInterface);
     } else {
