@@ -10,10 +10,13 @@
 #include "project_cfg.h"
 
 #include "devices/K210/K210.h"
+#include "modules/wifi/WifiModule.h"
 
 static const char *TAG = "MAD_ESP32";
 
 static K210 k210("K210");
+
+static WifiModule wifiModule("WIFI Module");
 
 DMA_ATTR K210ESP32Data spi0Esp32TxBuffer;
 DMA_ATTR K210ESP32Data spi0Esp32RxBuffer;
@@ -44,22 +47,43 @@ void spiTaskFunction(void *parameter) {
   ESP_LOGI("spi_slave_task", "");
 
   while (true) {
-    if (ctx % 2 == 0) {
-      // movingModuleInterface.command = MOVING_MODULE_COMMAND_PWM;
-      // movingModuleInterface.commandAttribute = MOVING_MODULE_COMMAND_ATTRIBUTE_ALL;
-      // movingModuleInterface.movingDirection = MOVING_MODULE_DIRECTION_NONE;
-      // movingModuleInterface.pwmValue = 100;
+    /* TODO: Create xQueue of tx messages (CMD's, Messages etc.) */
+    // if (ctx == 2) {
+    //   movingModuleInterface.command = MOVING_MODULE_COMMAND_MOVE;
+    //   movingModuleInterface.commandAttribute = MOVING_MODULE_COMMAND_ATTRIBUTE_ALL;
+    //   movingModuleInterface.movingDirection = MOVING_MODULE_DIRECTION_FORWARD;
+    //   movingModuleInterface.pwmValue = (uint16_t)(0.4 * 1000);
 
-      // memcpy(spi0Esp32TxBuffer.data, &movingModuleInterface, sizeof(MovingModuleInterface));
-      // spi0Esp32TxBuffer.type = MOVING_CMD;
-      // spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
-      // spi0Esp32TxBuffer.size = sizeof(MovingModuleInterface);
-    } else {
-      sprintf((char *)spi0Esp32TxBuffer.data, "Hello K210, xLastWakeTime: %d", xLastWakeTime);
-      spi0Esp32TxBuffer.type = STRING;
-      spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
-      spi0Esp32TxBuffer.size = strlen((char *)spi0Esp32TxBuffer.data);
-    }
+    //   memcpy(spi0Esp32TxBuffer.data, &movingModuleInterface, sizeof(MovingModuleInterface));
+    //   spi0Esp32TxBuffer.type = MOVING_CMD;
+    //   spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
+    //   spi0Esp32TxBuffer.size = sizeof(MovingModuleInterface);
+    // } else if (ctx == 5) {
+    //   movingModuleInterface.command = MOVING_MODULE_COMMAND_PWM;
+    //   movingModuleInterface.commandAttribute = MOVING_MODULE_COMMAND_ATTRIBUTE_ALL;
+    //   movingModuleInterface.movingDirection = MOVING_MODULE_DIRECTION_NONE;
+    //   movingModuleInterface.pwmValue = (uint16_t)(0.35 * 1000);
+
+    //   memcpy(spi0Esp32TxBuffer.data, &movingModuleInterface, sizeof(MovingModuleInterface));
+    //   spi0Esp32TxBuffer.type = MOVING_CMD;
+    //   spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
+    //   spi0Esp32TxBuffer.size = sizeof(MovingModuleInterface);
+    // } else if (ctx == 10) {
+    //   movingModuleInterface.command = MOVING_MODULE_COMMAND_STOP;
+    //   movingModuleInterface.commandAttribute = MOVING_MODULE_COMMAND_ATTRIBUTE_ALL;
+    //   movingModuleInterface.movingDirection = MOVING_MODULE_DIRECTION_NONE;
+    //   movingModuleInterface.pwmValue = 0;
+
+    //   memcpy(spi0Esp32TxBuffer.data, &movingModuleInterface, sizeof(MovingModuleInterface));
+    //   spi0Esp32TxBuffer.type = MOVING_CMD;
+    //   spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
+    //   spi0Esp32TxBuffer.size = sizeof(MovingModuleInterface);
+    // } else {
+    sprintf((char *)spi0Esp32TxBuffer.data, "Hello K210, xLastWakeTime: %d", xLastWakeTime);
+    spi0Esp32TxBuffer.type = STRING;
+    spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
+    spi0Esp32TxBuffer.size = strlen((char *)spi0Esp32TxBuffer.data);
+    // }
 
     espErr = k210.transferFullDuplex(spi0Esp32TxBuffer, spi0Esp32RxBuffer);
     if (espErr == ESP_OK) {
@@ -72,7 +96,11 @@ void spiTaskFunction(void *parameter) {
     } else {
       ESP_LOGI(TAG, "ERR_CODE:%d ", espErr);
     }
-    ctx++;
+    if (ctx >= 10) {
+      ctx = 0;
+    } else {
+      ctx++;
+    }
 
     /* Wait for the next cycle. */
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(xFrequency));
@@ -114,6 +142,12 @@ static esp_err_t spiSlaveInit(void) {
   return ret;
 }
 
+static esp_err_t wifiInit(void) {
+  esp_err_t ret;
+  ret = ESP_OK;
+  return ret;
+}
+
 extern "C" void app_main() {
   esp_err_t ret;
 
@@ -137,5 +171,11 @@ extern "C" void app_main() {
 
     ESP_LOGI(TAG, "Start SPI task");
     xTaskCreatePinnedToCore(&spiTaskFunction, "spi_task", 2048, NULL, 5, NULL, 1);
+  }
+
+  ret = wifiInit();
+  if (ret == ESP_OK) {
+
+    wifiModule.init();
   }
 }

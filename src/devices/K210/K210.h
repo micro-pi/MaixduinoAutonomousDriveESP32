@@ -18,7 +18,7 @@ public:
   void setHost(const spi_host_device_t host);
   void setTicksToWait(const TickType_t ticksToWait);
   esp_err_t transferFullDuplex(K210ESP32Data &spi0Esp32TxBuffer, K210ESP32Data &spi0Esp32RxBuffer);
-  virtual ~K210(void);
+  virtual ~K210();
 };
 
 #endif

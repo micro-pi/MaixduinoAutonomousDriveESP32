@@ -9,7 +9,7 @@ public:
   Device(const char *name);
   virtual void begin(void) = 0;
   virtual const char *getName(void);
-  virtual ~Device(void);
+  virtual ~Device();
 };
 
 #endif
