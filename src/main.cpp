@@ -9,103 +9,15 @@
 #include "common/common.h"
 #include "project_cfg.h"
 
-#include "devices/K210/K210.h"
-#include "modules/wifi/WifiModule.h"
+#include "devices/AllDevices.h"
+#include "modules/AllModules.h"
+
+#include "tasks/tasks.h"
 
 static const char *TAG = "MAD_ESP32";
 
-static K210 k210("K210");
-
-static WifiModule wifiModule("WIFI Module");
-
-DMA_ATTR K210ESP32Data spi0Esp32TxBuffer;
-DMA_ATTR K210ESP32Data spi0Esp32RxBuffer;
-
-void blinkTaskFunction(void *parameter) {
-  while (1) {
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-  }
-}
-
-void adcTaskFunction(void *parameter) {
-  while (1) {
-    vTaskDelay(1500 / portTICK_PERIOD_MS);
-  }
-}
-
-/* https://www.esp32.com/viewtopic.php?t=6512 */
-void spiTaskFunction(void *parameter) {
-  const TickType_t xFrequency = 10;
-  TickType_t xLastWakeTime;
-  esp_err_t espErr;
-  uint8_t ctx = 0;
-  // MovingModuleInterface movingModuleInterface;
-
-  /* Initialise the xLastWakeTime variable with the current time. */
-  xLastWakeTime = xTaskGetTickCount();
-
-  ESP_LOGI("spi_slave_task", "");
-
-  while (true) {
-    /* TODO: Create xQueue of tx messages (CMD's, Messages etc.) */
-    // if (ctx == 2) {
-    //   movingModuleInterface.command = MOVING_MODULE_COMMAND_MOVE;
-    //   movingModuleInterface.commandAttribute = MOVING_MODULE_COMMAND_ATTRIBUTE_ALL;
-    //   movingModuleInterface.movingDirection = MOVING_MODULE_DIRECTION_FORWARD;
-    //   movingModuleInterface.pwmValue = (uint16_t)(0.4 * 1000);
-
-    //   memcpy(spi0Esp32TxBuffer.data, &movingModuleInterface, sizeof(MovingModuleInterface));
-    //   spi0Esp32TxBuffer.type = MOVING_CMD;
-    //   spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
-    //   spi0Esp32TxBuffer.size = sizeof(MovingModuleInterface);
-    // } else if (ctx == 5) {
-    //   movingModuleInterface.command = MOVING_MODULE_COMMAND_PWM;
-    //   movingModuleInterface.commandAttribute = MOVING_MODULE_COMMAND_ATTRIBUTE_ALL;
-    //   movingModuleInterface.movingDirection = MOVING_MODULE_DIRECTION_NONE;
-    //   movingModuleInterface.pwmValue = (uint16_t)(0.35 * 1000);
-
-    //   memcpy(spi0Esp32TxBuffer.data, &movingModuleInterface, sizeof(MovingModuleInterface));
-    //   spi0Esp32TxBuffer.type = MOVING_CMD;
-    //   spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
-    //   spi0Esp32TxBuffer.size = sizeof(MovingModuleInterface);
-    // } else if (ctx == 10) {
-    //   movingModuleInterface.command = MOVING_MODULE_COMMAND_STOP;
-    //   movingModuleInterface.commandAttribute = MOVING_MODULE_COMMAND_ATTRIBUTE_ALL;
-    //   movingModuleInterface.movingDirection = MOVING_MODULE_DIRECTION_NONE;
-    //   movingModuleInterface.pwmValue = 0;
-
-    //   memcpy(spi0Esp32TxBuffer.data, &movingModuleInterface, sizeof(MovingModuleInterface));
-    //   spi0Esp32TxBuffer.type = MOVING_CMD;
-    //   spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
-    //   spi0Esp32TxBuffer.size = sizeof(MovingModuleInterface);
-    // } else {
-    sprintf((char *)spi0Esp32TxBuffer.data, "Hello K210, xLastWakeTime: %d", xLastWakeTime);
-    spi0Esp32TxBuffer.type = STRING;
-    spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
-    spi0Esp32TxBuffer.size = strlen((char *)spi0Esp32TxBuffer.data);
-    // }
-
-    espErr = k210.transferFullDuplex(spi0Esp32TxBuffer, spi0Esp32RxBuffer);
-    if (espErr == ESP_OK) {
-      ESP_LOGI(TAG, "Rx.id  : %d ", spi0Esp32RxBuffer.id);
-      ESP_LOGI(TAG, "Rx.type: %d ", spi0Esp32RxBuffer.type);
-      ESP_LOGI(TAG, "Rx.size: %d ", spi0Esp32RxBuffer.size);
-      ESP_LOGI(TAG, "Rx.data: %s ", (char *)spi0Esp32RxBuffer.data);
-      ESP_LOGI(TAG, "Rx.crc : %04X ", spi0Esp32RxBuffer.crc);
-      ESP_LOGI(TAG, "   crc : %04X ", k210Esp32DataCrc16(spi0Esp32RxBuffer));
-    } else {
-      ESP_LOGI(TAG, "ERR_CODE:%d ", espErr);
-    }
-    if (ctx >= 10) {
-      ctx = 0;
-    } else {
-      ctx++;
-    }
-
-    /* Wait for the next cycle. */
-    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(xFrequency));
-  }
-}
+/* Objects */
+static xQueueHandle movingModuleCommandsQueue;
 
 static esp_err_t spiSlaveInit(void) {
   esp_err_t ret;
@@ -149,33 +61,61 @@ static esp_err_t wifiInit(void) {
 }
 
 extern "C" void app_main() {
-  esp_err_t ret;
+  uint32_t i;
+  esp_err_t retSpi;
+  esp_err_t retWiFi;
+  esp_err_t retNvs;
+  BaseType_t xReturn;
 
   /* Initialize the default NVS partition. */
-  ret = nvs_flash_init();
-  if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+  retNvs = nvs_flash_init();
+  if (retNvs == ESP_ERR_NVS_NO_FREE_PAGES || retNvs == ESP_ERR_NVS_NEW_VERSION_FOUND) {
     ESP_ERROR_CHECK(nvs_flash_erase());
     ESP_ERROR_CHECK(nvs_flash_init());
   }
 
-  ESP_LOGI(TAG, "Start blink task");
-  xTaskCreatePinnedToCore(&blinkTaskFunction, "blink_task", 2048, NULL, 5, NULL, 0);
-  ESP_LOGI(TAG, "Start ADC task");
-  xTaskCreatePinnedToCore(&adcTaskFunction, "adc_task", 2048, NULL, 5, NULL, 1);
+  /* Initialize Objects */
+  movingModuleCommandsQueue = xQueueCreate(16, sizeof(MovingModuleInterface));
 
-  ret = spiSlaveInit();
-  if (ret == ESP_OK) {
-    k210.setHost(RCV_HOST);
-    k210.setTicksToWait(portMAX_DELAY);
-    k210.begin();
+  /* Initialize Ports */
+  retSpi = spiSlaveInit();
+  retWiFi = wifiInit();
 
-    ESP_LOGI(TAG, "Start SPI task");
-    xTaskCreatePinnedToCore(&spiTaskFunction, "spi_task", 2048, NULL, 5, NULL, 1);
+  /* Initialize Devices */
+  k210.setHost(RCV_HOST);
+  k210.setTicksToWait(portMAX_DELAY);
+
+  ESP_LOGI(TAG, "Devices: %d", NUM_OF_DEVICES);
+  for (i = 0; i < NUM_OF_DEVICES; i++) {
+    DEVICES[i]->begin();
   }
 
-  ret = wifiInit();
-  if (ret == ESP_OK) {
+  /* Initialize Communication Module */
+  k210Esp32Communication.setMovingModuleCommandsQueue(movingModuleCommandsQueue);
+  k210Esp32Communication.setK210Device(k210);
+  if (retSpi == ESP_OK) {
+    ESP_LOGI(TAG, "Run task %s", "k210Esp32CommunicationTask");
+    xReturn = xTaskCreatePinnedToCore(&k210Esp32CommunicationTask, "k210Esp32CommunicationTask", 2048, NULL, 5, NULL, CORE_0);
+    if (xReturn != pdPASS) {
+      ESP_LOGI(TAG, "Task %s run problem", "k210Esp32CommunicationTask");
+    } else {
+      ESP_LOGI(TAG, "Rask %s is running", "k210Esp32CommunicationTask");
+    }
+  }
 
-    wifiModule.init();
+  /* Initialize Modules 10ms */
+
+  ESP_LOGI(TAG, "Modules 10ms: %d", NUM_OF_MODULES_10MS);
+  for (i = 0; i < NUM_OF_MODULES_10MS; i++) {
+    ESP_LOGI(TAG, "Init module '%s'", MODULES_10MS[i]->getName());
+    MODULES_10MS[i]->init();
+  }
+
+  ESP_LOGI(TAG, "Run task %s", "task10ms");
+  xReturn = xTaskCreatePinnedToCore(&task10ms, "task10ms", 2048, NULL, 5, NULL, CORE_1);
+  if (xReturn != pdPASS) {
+    ESP_LOGI(TAG, "Task %s run problem", "task10ms");
+  } else {
+    ESP_LOGI(TAG, "Rask %s is running", "task10ms");
   }
 }
