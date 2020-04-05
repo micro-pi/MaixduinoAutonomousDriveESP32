@@ -26,8 +26,9 @@ void K210ESP32Communication::setK210Device(K210 &k210) {
 }
 
 void K210ESP32Communication::mainFunction(void) {
+  BaseType_t xStatus;
   esp_err_t espErr;
-  uint8_t ctx = 0;
+  uint16_t crc;
 
   if (k210 != nullptr) {
     /* TODO: Create xQueue of tx messages (CMD's, Messages etc.) */
@@ -35,21 +36,21 @@ void K210ESP32Communication::mainFunction(void) {
     //   movingModuleInterface.command = MOVING_MODULE_COMMAND_MOVE;
     //   movingModuleInterface.commandAttribute = MOVING_MODULE_COMMAND_ATTRIBUTE_ALL;
     //   movingModuleInterface.movingDirection = MOVING_MODULE_DIRECTION_FORWARD;
-    //   movingModuleInterface.pwmValue = (uint16_t)(0.4 * 1000);
+    //   movingModuleInterface.pwmValue = (uint16_t)(0.45 * 1000);
 
     //   memcpy(spi0Esp32TxBuffer.data, &movingModuleInterface, sizeof(MovingModuleInterface));
     //   spi0Esp32TxBuffer.type = MOVING_CMD;
-    //   spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
+    //   spi0Esp32TxBuffer.id = (uint8_t)1;
     //   spi0Esp32TxBuffer.size = sizeof(MovingModuleInterface);
     // } else if (ctx == 5) {
     //   movingModuleInterface.command = MOVING_MODULE_COMMAND_PWM;
     //   movingModuleInterface.commandAttribute = MOVING_MODULE_COMMAND_ATTRIBUTE_ALL;
     //   movingModuleInterface.movingDirection = MOVING_MODULE_DIRECTION_NONE;
-    //   movingModuleInterface.pwmValue = (uint16_t)(0.35 * 1000);
+    //   movingModuleInterface.pwmValue = (uint16_t)(0.40 * 1000);
 
     //   memcpy(spi0Esp32TxBuffer.data, &movingModuleInterface, sizeof(MovingModuleInterface));
     //   spi0Esp32TxBuffer.type = MOVING_CMD;
-    //   spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
+    //   spi0Esp32TxBuffer.id = (uint8_t)1;
     //   spi0Esp32TxBuffer.size = sizeof(MovingModuleInterface);
     // } else if (ctx == 10) {
     //   movingModuleInterface.command = MOVING_MODULE_COMMAND_STOP;
@@ -59,30 +60,57 @@ void K210ESP32Communication::mainFunction(void) {
 
     //   memcpy(spi0Esp32TxBuffer.data, &movingModuleInterface, sizeof(MovingModuleInterface));
     //   spi0Esp32TxBuffer.type = MOVING_CMD;
-    //   spi0Esp32TxBuffer.id = (uint8_t)xLastWakeTime;
+    //   spi0Esp32TxBuffer.id = (uint8_t)1;
     //   spi0Esp32TxBuffer.size = sizeof(MovingModuleInterface);
     // } else {
-    sprintf((char *)spi0Esp32TxBuffer.data, "Hello K210, xLastWakeTime");
-    spi0Esp32TxBuffer.type = STRING;
-    spi0Esp32TxBuffer.id = (uint8_t)1;
-    spi0Esp32TxBuffer.size = strlen((char *)spi0Esp32TxBuffer.data);
     // }
+
+    xStatus = xQueueReceive(this->movingModuleCommandsQueue, &movingModuleInterface, 0);
+    if (xStatus == pdFAIL) {
+      memset(spi0Esp32TxBuffer.data, 0, sizeof(spi0Esp32TxBuffer.data));
+      spi0Esp32TxBuffer.type = EMPTY;
+      spi0Esp32TxBuffer.id = (uint8_t)1;
+      spi0Esp32TxBuffer.size = 0;
+    } else {
+      /* Set CMD to data array */
+      memcpy(spi0Esp32TxBuffer.data, &movingModuleInterface, sizeof(MovingModuleInterface));
+      spi0Esp32TxBuffer.type = MOVING_CMD;
+      spi0Esp32TxBuffer.id = (uint8_t)1;
+      spi0Esp32TxBuffer.size = sizeof(MovingModuleInterface);
+    }
 
     espErr = k210->transferFullDuplex(spi0Esp32TxBuffer, spi0Esp32RxBuffer);
     if (espErr == ESP_OK) {
-      ESP_LOGI(TAG, "Rx.id  : %d ", spi0Esp32RxBuffer.id);
-      ESP_LOGI(TAG, "Rx.type: %d ", spi0Esp32RxBuffer.type);
-      ESP_LOGI(TAG, "Rx.size: %d ", spi0Esp32RxBuffer.size);
-      ESP_LOGI(TAG, "Rx.data: %s ", (char *)spi0Esp32RxBuffer.data);
-      ESP_LOGI(TAG, "Rx.crc : %04X ", spi0Esp32RxBuffer.crc);
-      ESP_LOGI(TAG, "   crc : %04X ", k210Esp32DataCrc16(spi0Esp32RxBuffer));
+      crc = k210Esp32DataCrc16(spi0Esp32RxBuffer);
+      if (spi0Esp32RxBuffer.crc == crc) {
+        switch (spi0Esp32RxBuffer.type) {
+          case EMPTY:
+            break;
+
+          case STRING:
+            /* Used for tests */
+            // ESP_LOGI(TAG, "Rx.id  : %d ", spi0Esp32RxBuffer.id);
+            // ESP_LOGI(TAG, "Rx.type: %d ", spi0Esp32RxBuffer.type);
+            // ESP_LOGI(TAG, "Rx.size: %d ", spi0Esp32RxBuffer.size);
+            // ESP_LOGI(TAG, "Rx.data: %s ", (char *)spi0Esp32RxBuffer.data);
+            // ESP_LOGI(TAG, "Rx.crc : %04X ", spi0Esp32RxBuffer.crc);
+            // ESP_LOGI(TAG, "   crc : %04X ", crc);
+            break;
+
+          case MOVING_CMD:
+          case BYTES:
+            /* code */
+            break;
+
+          default:
+            ESP_LOGW(TAG, "Unknown type '%d'", spi0Esp32RxBuffer.type);
+            break;
+        }
+      } else {
+        ESP_LOGW(TAG, "CRC ERR: RX(%d) != CRC(%d)", spi0Esp32RxBuffer.crc, crc);
+      }
     } else {
-      ESP_LOGI(TAG, "ERR_CODE:%d ", espErr);
-    }
-    if (ctx >= 10) {
-      ctx = 0;
-    } else {
-      ctx++;
+      ESP_LOGW(TAG, "ERR_CODE:%d ", espErr);
     }
   }
 }

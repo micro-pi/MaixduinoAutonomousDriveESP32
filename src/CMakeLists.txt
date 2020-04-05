@@ -12,6 +12,7 @@ set(app_sources
 	"modules/Module.cpp"
 	"modules/wifi/WifiModule.cpp"
 	"tasks/tasks.cpp"
+	"WIFIAP.cpp"
 )
 
 idf_component_register(SRCS ${app_sources})
