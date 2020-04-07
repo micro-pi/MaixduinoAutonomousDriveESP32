@@ -7,7 +7,7 @@ class WifiModule : public Module {
 private:
 public:
   WifiModule(const char *moduleName);
-  ErrorCode init(void);
+  ErrorCode initModule(void);
   void mainFunction(void);
   virtual ~WifiModule();
 };

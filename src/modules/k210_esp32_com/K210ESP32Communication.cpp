@@ -1,5 +1,7 @@
 #include "K210ESP32Communication.h"
 
+#include <driver/gpio.h>
+#include <driver/spi_slave.h>
 #include <esp_log.h>
 #include <string.h>
 
@@ -10,9 +12,38 @@ K210ESP32Communication::K210ESP32Communication(const char *moduleName) : Module(
   this->k210 = nullptr;
 }
 
-ErrorCode K210ESP32Communication::init(void) {
+ErrorCode K210ESP32Communication::initModule(void) {
   ErrorCode errorCode;
-  errorCode = E_OK;
+  esp_err_t ret;
+
+  busConfig.mosi_io_num = SPI_SLAVE_MOSI_PIN;
+  busConfig.miso_io_num = SPI_SLAVE_MISO_PIN;
+  busConfig.sclk_io_num = SPI_SLAVE_SCLK_PIN;
+  busConfig.quadwp_io_num = -1;
+  busConfig.quadhd_io_num = -1;
+  busConfig.max_transfer_sz = 0;
+  busConfig.flags = 0;
+  busConfig.intr_flags = 0;
+
+  slaveInterfaceConfig.spics_io_num = SPI_SLAVE_CS_PIN;
+  slaveInterfaceConfig.flags = 0;
+  slaveInterfaceConfig.queue_size = INTERNAL_QSIZE;
+  slaveInterfaceConfig.mode = 2;
+  slaveInterfaceConfig.post_setup_cb = nullptr;
+  slaveInterfaceConfig.post_trans_cb = nullptr;
+
+  /* Enable pull-ups on SPI lines so we don't detect rogue pulses when no master is connected. */
+  gpio_set_pull_mode(SPI_SLAVE_MOSI_PIN, GPIO_PULLUP_ONLY);
+  gpio_set_pull_mode(SPI_SLAVE_SCLK_PIN, GPIO_PULLUP_ONLY);
+  gpio_set_pull_mode(SPI_SLAVE_CS_PIN, GPIO_PULLUP_ONLY);
+
+  /* Initialize SPI slave interface */
+  ret = spi_slave_initialize(RCV_HOST, &busConfig, &slaveInterfaceConfig, DMA_CHAN);
+  if (ret == ESP_OK) {
+    errorCode = E_OK;
+  } else {
+    errorCode = E_NOK;
+  }
 
   return errorCode;
 }
@@ -30,7 +61,7 @@ void K210ESP32Communication::mainFunction(void) {
   esp_err_t espErr;
   uint16_t crc;
 
-  if (k210 != nullptr) {
+  if ((getErrorCode() == E_OK) && (k210 != nullptr)) {
     /* TODO: Create xQueue of tx messages (CMD's, Messages etc.) */
     // if (ctx == 2) {
     //   movingModuleInterface.command = MOVING_MODULE_COMMAND_MOVE;

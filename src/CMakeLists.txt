@@ -2,7 +2,6 @@
 # without default 'CMakeLists.txt' file.
 
 set(app_sources
-	"WIFIAP.cpp"
 	"common/common.cpp"
 	"devices/AllDevices.cpp"
 	"devices/Device.cpp"
@@ -10,7 +9,7 @@ set(app_sources
 	"main.cpp"
 	"modules/AllModules.cpp"
 	"modules/Module.cpp"
-	"modules/http_module/http_module.cpp"
+	"modules/HttpServer/HttpServer.cpp"
 	"modules/k210_esp32_com/K210ESP32Communication.cpp"
 	"modules/wifi/WifiModule.cpp"
 	"tasks/tasks.cpp"

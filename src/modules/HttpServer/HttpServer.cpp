@@ -1,4 +1,4 @@
-#include "http_module.h"
+#include "HttpServer.h"
 #include <esp_log.h>
 
 #define EXAMPLE_ESP_WIFI_SSID "MaixAP"
@@ -6,36 +6,62 @@
 
 static const char *TAG = "HTTP_ESP32";
 
-static esp_err_t event_handler(void *ctx, system_event_t *event);
+static esp_err_t eventHandler(void *ctx, system_event_t *event);
 static esp_err_t indexGetHandlerFunction(httpd_req_t *req);
 
-HttpServer::HttpServer() {
+HttpServer::HttpServer(const char *moduleName) : Module(moduleName) {
   this->movingModuleCommandsQueue = nullptr;
   this->server = nullptr;
-  indexUri = {
-      .uri = "/",
-      .method = HTTP_GET,
-      .handler = &indexGetHandlerFunction,
-      .user_ctx = (void *)this};
+  this->indexUri.uri = "/";
+  this->indexUri.method = HTTP_GET;
+  this->indexUri.handler = &indexGetHandlerFunction;
+  this->indexUri.user_ctx = (void *)this;
+}
+
+ErrorCode HttpServer::initModule(void) {
+  ErrorCode errorCode;
+
+  wifi_config_t wifi_config = {};
+
+  if ((ssid == nullptr) || (ssid[0] == '\0') || strlen(ssid) > 31) {
+    /* fail SSID missing */
+    ESP_LOGE(TAG, "SSID too long or missing!");
+    errorCode = E_NOK;
+  } else if ((password != nullptr) && (strlen(password) > 64)) {
+    /* fail password too long */
+    ESP_LOGE(TAG, "password too long!");
+    errorCode = E_NOK;
+  } else {
+    tcpip_adapter_init();
+    ESP_ERROR_CHECK(esp_event_loop_init(eventHandler, (void *)this));
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+    strcpy(reinterpret_cast<char *>(wifi_config.sta.ssid), ssid);
+    strcpy(reinterpret_cast<char *>(wifi_config.sta.password), password);
+    ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
+    ESP_ERROR_CHECK(esp_wifi_start());
+
+    errorCode = E_OK;
+  }
+  return errorCode;
+}
+
+void HttpServer::mainFunction(void) {
 }
 
 void HttpServer::setMovingModuleCommandsQueue(xQueueHandle movingModuleCommandsQueue) {
   this->movingModuleCommandsQueue = movingModuleCommandsQueue;
 }
 
-void HttpServer::initialiseWifi(const char *ssid, const char *password) {
-  wifi_config_t wifi_config = {};
-  tcpip_adapter_init();
-  ESP_ERROR_CHECK(esp_event_loop_init(event_handler, (void *)this));
-  wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-  ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-  ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-  strcpy(reinterpret_cast<char *>(wifi_config.sta.ssid), ssid);
-  strcpy(reinterpret_cast<char *>(wifi_config.sta.password), password);
-  ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
-  ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-  ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
-  ESP_ERROR_CHECK(esp_wifi_start());
+void HttpServer::setSsid(const char *ssid) {
+  strcpy(this->ssid, ssid);
+}
+
+void HttpServer::setPassword(const char *password) {
+  strcpy(this->password, password);
 }
 
 esp_err_t HttpServer::stopWebserver(void) {
@@ -217,7 +243,7 @@ static esp_err_t indexGetHandlerFunction(httpd_req_t *req) {
   return espErr;
 }
 
-static esp_err_t event_handler(void *ctx, system_event_t *event) {
+static esp_err_t eventHandler(void *ctx, system_event_t *event) {
   HttpServer *httpServer = (HttpServer *)ctx;
   esp_err_t espErr;
 
@@ -226,6 +252,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event) {
       ESP_LOGI(TAG, "SYSTEM_EVENT_STA_START");
       ESP_ERROR_CHECK(esp_wifi_connect());
       break;
+
     case SYSTEM_EVENT_STA_GOT_IP:
       ESP_LOGI(TAG, "SYSTEM_EVENT_STA_GOT_IP");
       ESP_LOGI(TAG, "Got IP: '%s'", ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip));
@@ -239,6 +266,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event) {
         }
       }
       break;
+
     case SYSTEM_EVENT_STA_DISCONNECTED:
       ESP_LOGI(TAG, "SYSTEM_EVENT_STA_DISCONNECTED");
       ESP_ERROR_CHECK(esp_wifi_connect());
@@ -247,6 +275,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event) {
         httpServer->stopWebserver();
       }
       break;
+
     default:
       break;
   }

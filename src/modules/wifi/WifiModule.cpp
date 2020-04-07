@@ -3,7 +3,7 @@
 WifiModule::WifiModule(const char *moduleName) : Module(moduleName) {
 }
 
-ErrorCode WifiModule::init(void) {
+ErrorCode WifiModule::initModule(void) {
   return E_OK;
 }
 

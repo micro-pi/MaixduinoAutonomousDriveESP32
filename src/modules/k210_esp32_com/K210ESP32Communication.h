@@ -11,6 +11,10 @@ private:
   MovingModuleInterface movingModuleInterface;
   K210ESP32Data spi0Esp32TxBuffer;
   K210ESP32Data spi0Esp32RxBuffer;
+  /* Configuration for the SPI bus */
+  spi_bus_config_t busConfig;
+  /* Configuration for the SPI slave interface */
+  spi_slave_interface_config_t slaveInterfaceConfig;
   K210 *k210;
 
 public:
@@ -18,7 +22,7 @@ public:
    * @brief Default constructor
    */
   K210ESP32Communication(const char *moduleName);
-  ErrorCode init(void);
+  ErrorCode initModule(void);
   void setMovingModuleCommandsQueue(xQueueHandle movingModuleCommandsQueue);
   void setK210Device(K210 &k210);
   void mainFunction(void);

@@ -3,6 +3,7 @@
 /* Modules */
 WifiModule wifiModule("WIFI Module");
 K210ESP32Communication k210Esp32Communication("K210/ESP32 Communication");
+HttpServer httpServer("HTTP Server");
 
 Module *MODULES_10MS[] = {
     &wifiModule,
