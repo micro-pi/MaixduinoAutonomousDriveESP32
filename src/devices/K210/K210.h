@@ -14,7 +14,7 @@ private:
 
 public:
   K210(const char *deviceName);
-  void begin(void);
+  ErrorCode initDevice(void);
   void setHost(const spi_host_device_t host);
   void setTicksToWait(const TickType_t ticksToWait);
   esp_err_t transferFullDuplex(K210ESP32Data &spi0Esp32TxBuffer, K210ESP32Data &spi0Esp32RxBuffer);

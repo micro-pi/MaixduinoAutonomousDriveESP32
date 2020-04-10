@@ -10,7 +10,8 @@ K210::K210(const char *deviceName) : Device(deviceName) {
   this->ticksToWait = portMAX_DELAY;
 }
 
-void K210::begin() {
+ErrorCode K210::initDevice() {
+  return E_OK;
 }
 
 void K210::setHost(const spi_host_device_t host) {

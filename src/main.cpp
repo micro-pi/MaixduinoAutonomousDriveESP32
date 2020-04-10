@@ -22,6 +22,7 @@ static xQueueHandle movingModuleCommandsQueue;
 
 extern "C" void app_main() {
   uint32_t i;
+  ErrorCode errorCode;
   esp_err_t retNvs;
   BaseType_t xReturn;
 
@@ -41,7 +42,12 @@ extern "C" void app_main() {
 
   ESP_LOGI(TAG, "Devices: %d", NUM_OF_DEVICES);
   for (i = 0; i < NUM_OF_DEVICES; i++) {
-    DEVICES[i]->begin();
+    errorCode = DEVICES[i]->begin();
+    if (errorCode == E_OK) {
+      ESP_LOGI(TAG, "Device \"%s\" initialized successfully!", DEVICES[i]->getName());
+    } else {
+      ESP_LOGW(TAG, "Device \"%s\" not initialized!", DEVICES[i]->getName());
+    }
   }
 
   /* Initialize Communication Module */

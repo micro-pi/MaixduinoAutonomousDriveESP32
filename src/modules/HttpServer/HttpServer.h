@@ -8,7 +8,7 @@
 #include <freertos/FreeRTOS.h>
 
 /* 
- * Move WIFI functionality to separate class
+ * TODO: Move WIFI functionality to separate class
  * Add handlers to detect wifi connection
  */
 class HttpServer : public Module {
